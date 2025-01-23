@@ -1,4 +1,4 @@
-package org.pogonin.authservice.port.out.db;
+package org.pogonin.authservice.db.repository;
 
 import org.pogonin.authservice.db.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;

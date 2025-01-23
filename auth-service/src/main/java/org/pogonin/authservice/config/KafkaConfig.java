@@ -1,4 +1,4 @@
 package org.pogonin.authservice.config;
 
-public class KafkaKonfig {
+public class KafkaConfig {
 }

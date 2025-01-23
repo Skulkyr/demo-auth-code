@@ -1,0 +1,119 @@
+version: "3.8"
+
+services:
+  auth_service_db:
+    image: postgres:16
+    restart: always
+    environment:
+      - 'POSTGRES_USER=postgres'
+      - 'POSTGRES_PASSWORD=postgres'
+      - 'POSTGRES_DB=auth_db'
+    volumes:
+      - pg_auth:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    command: [
+      "postgres",
+      "-c",
+      "wal_level=logical",
+      "-c",
+      "max_replication_slots=10",
+      "-c",
+      "max_wal_senders=10",
+      "-c",
+      "max_wal_size=2GB",
+      "-c",
+      "listen_addresses=*"
+    ]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.8.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INNER://0.0.0.0:9092, OUTER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INNER://kafka:9092, OUTER://127.0.0.1:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INNER:PLAINTEXT,OUTER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INNER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  connect:
+    image: debezium/connect:3.0.0.Final
+    depends_on:
+      - kafka
+      - auth_service_db
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: 'kafka:9092'
+      GROUP_ID: '1'
+      CONFIG_STORAGE_TOPIC: 'connect-configs'
+      OFFSET_STORAGE_TOPIC: 'connect-offsets'
+      STATUS_STORAGE_TOPIC: 'connect-status'
+      KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+      KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONNECT_REST_ADVERTISED_HOST_NAME: 'connect'
+      CONNECT_GROUP_ID: 'connect-cluster'
+      CONNECT_CONFIG_STORAGE_TOPIC: 'connect-configs'
+      CONNECT_OFFSET_STORAGE_TOPIC: 'connect-offsets'
+      CONNECT_STATUS_STORAGE_TOPIC: 'connect-status'
+      CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: 'PLAINTEXT'
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: 'PLAINTEXT'
+      CONNECT_PLUGIN_PATH: /kafka/connect/jars
+    volumes:
+      - ./kafka-connect/jars:/kafka/connect/jars
+      - ./kafka-connect/config:/kafka/connect/config
+      - ./kafka-connect/setup:/kafka/connect/setup
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  connect-init:
+    image: curlimages/curl:7.83.1
+    depends_on:
+      connect:
+        condition: service_healthy
+    volumes:
+      - ./kafka-connect/config:/kafka/connect/config
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Ожидание запуска Kafka Connect..."
+        until curl -s http://connect:8083/ > /dev/null; do
+          echo "Ожидание запуска Kafka Connect..."
+          sleep 5
+        done
+        echo "Создание коннектора Debezium..."
+        curl -X POST -H "Content-Type: application/json" --data @/kafka/connect/config/debezium-postgres-connector.json http://connect:8083/connectors || echo "Коннектор уже существует"
+
+
+  kafka_ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    environment:
+      DYNAMIC_CONFIG_ENABLED: true
+    ports:
+      - "8082:8080"
+volumes:
+  pg_auth:

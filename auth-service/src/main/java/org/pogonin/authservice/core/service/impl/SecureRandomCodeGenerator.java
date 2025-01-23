@@ -1,5 +1,6 @@
-package org.pogonin.authservice.core;
+package org.pogonin.authservice.core.service.impl;
 
+import org.pogonin.authservice.core.service.CodeGenerator;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;

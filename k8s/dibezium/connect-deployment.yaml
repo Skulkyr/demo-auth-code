@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connect
+  template:
+    metadata:
+      labels:
+        app: connect
+    spec:
+      containers:
+        - name: connect
+          image: debezium/connect:3.0.0.Final
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka-0.kafka.default.svc.cluster.local:9092,kafka-1.kafka.default.svc.cluster.local:9092,kafka-2.kafka.default.svc.cluster.local:9092"
+            - name: GROUP_ID
+              value: "1"
+            - name: CONFIG_STORAGE_TOPIC
+              value: "connect-configs"
+            - name: OFFSET_STORAGE_TOPIC
+              value: "connect-offsets"
+            - name: STATUS_STORAGE_TOPIC
+              value: "connect-status"
+          ports:
+            - containerPort: 8083
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8083
+            initialDelaySeconds: 10
+            periodSeconds: 10
+        - name: create-connector
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Ожидание запуска Kafka Connect..."
+              until curl -s http://localhost:8083/ > /dev/null; do
+                echo "Ожидание запуска Kafka Connect..."
+                sleep 5
+              done
+              echo "Создание коннектора Debezium..."
+              curl -X POST -H "Content-Type: application/json" --data @/kafka/connect/config/debezium-postgres-connector.json http://localhost:8083/connectors || echo "Коннектор уже существует или произошла ошибка"
+          volumeMounts:
+            - name: connect-config
+              mountPath: /kafka/connect/config
+      volumes:
+        - name: connect-config
+          configMap:
+            name: connect-config-map

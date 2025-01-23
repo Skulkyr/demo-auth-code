@@ -1,4 +1,4 @@
-package org.pogonin.authservice.security;
+package org.pogonin.authservice.core.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

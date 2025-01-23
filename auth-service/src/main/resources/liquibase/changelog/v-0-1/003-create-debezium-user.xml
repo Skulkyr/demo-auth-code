@@ -5,9 +5,17 @@
                             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
 
-<changeSet id="001-create-dibezium-user" author="Alexey">
-        <add>
-    </changeSet>
+<changeSet id="006-create-debezium-user" author="Alexey">
+    <comment>Создание пользователя Debezium с правами репликации</comment>
+    <sql>
+        CREATE ROLE debezium WITH LOGIN PASSWORD 'dbz';
+        ALTER ROLE debezium WITH REPLICATION;
+        GRANT CONNECT ON DATABASE auth_db TO debezium;
+        GRANT USAGE ON SCHEMA public TO debezium;
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO debezium;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO debezium;
+    </sql>
+</changeSet>
 
 
 

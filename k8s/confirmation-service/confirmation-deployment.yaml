@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: confirmation-service
+  labels:
+    app: confirmation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: confirmation-service
+  template:
+    metadata:
+      name: confirmation-service
+      labels:
+        app: confirmation-service
+    spec:
+      containers:
+        - name: confirmation-service
+          image: skulkyr/confirmation-service:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SPRING.KAFKA.BOOTSTRAP-SERVERS
+              value: "kafka-0.kafka.default.svc.cluster.local:9092,kafka-1.kafka.default.svc.cluster.local:9092,kafka-2.kafka.default.svc.cluster.local:9092"
+      restartPolicy: Always
+      

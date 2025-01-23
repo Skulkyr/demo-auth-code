@@ -1,4 +1,9 @@
 package org.pogonin.authservice.api.dto.in;
 
-public class CofirmationRequest {
+import lombok.Data;
+
+@Data
+public class ConfirmationRequest {
+    private String email;
+    private String code;
 }

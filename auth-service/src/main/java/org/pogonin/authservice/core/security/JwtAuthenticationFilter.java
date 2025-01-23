@@ -1,4 +1,4 @@
-package org.pogonin.authservice.security;
+package org.pogonin.authservice.core.security;
 
 
 import io.jsonwebtoken.ExpiredJwtException;
